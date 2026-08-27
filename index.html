@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Estación IoT — DHT11</title>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+
+  <style>
+    /* ── Paleta ───────────────────────────────────────────── */
+    :root {
+      --marron:  #813405;
+      --naranja: #D45113;
+      --ambar:   #F9A03F;
+      --crema:   #F8DDA4;
+      --menta:   #DDF9C1;
+
+      --bg:      #813405;
+      --surface: rgba(212, 81, 19, 0.18);
+      --border:  rgba(249, 160, 63, 0.35);
+      --text:    #F8DDA4;
+      --text-muted: rgba(248, 221, 164, 0.6);
+      --accent:  #F9A03F;
+      --green:   #DDF9C1;
+    }
+
+    /* ── Reset & base ─────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Syne', sans-serif;
+      background: var(--marron);
+      background-image:
+        radial-gradient(ellipse 80% 60% at 20% 0%, rgba(212,81,19,0.55) 0%, transparent 65%),
+        radial-gradient(ellipse 60% 40% at 80% 100%, rgba(249,160,63,0.25) 0%, transparent 55%);
+      min-height: 100vh;
+      color: var(--text);
+      padding: 2rem 1.5rem 4rem;
+    }
+
+    /* ── Header ───────────────────────────────────────────── */
+    header {
+      max-width: 900px;
+      margin: 0 auto 3rem;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 1.5rem;
+    }
+
+    .site-title {
+      font-size: clamp(1.6rem, 4vw, 2.8rem);
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      line-height: 1;
+    }
+    .site-title span { color: var(--ambar); }
+
+    .status-pill {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 6px 14px;
+      font-size: 0.78rem;
+      font-family: 'Space Mono', monospace;
+      color: var(--text-muted);
+    }
+    .dot-live {
+      width: 8px; height: 8px;
+      background: var(--green);
+      border-radius: 50%;
+      animation: pulse 2s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%,100% { opacity:1; transform:scale(1); }
+      50%      { opacity:.5; transform:scale(0.8); }
+    }
+
+    /* ── Main grid ────────────────────────────────────────── */
+    main { max-width: 900px; margin: 0 auto; }
+
+    /* ── Tarjetas principales ─────────────────────────────── */
+    .cards-primary {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 1.25rem;
+      margin-bottom: 2rem;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 1.75rem 2rem;
+      position: relative;
+      overflow: hidden;
+      transition: border-color 0.2s;
+    }
+    .card::before {
+      content: '';
+      position: absolute;
+      top: -40px; right: -40px;
+      width: 130px; height: 130px;
+      border-radius: 50%;
+      background: rgba(249,160,63,0.07);
+      pointer-events: none;
+    }
+    .card:hover { border-color: rgba(249,160,63,0.6); }
+
+    .card-icon {
+      font-size: 2rem;
+      margin-bottom: 1rem;
+      display: block;
+    }
+    .card-label {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--text-muted);
+      margin-bottom: 0.4rem;
+      font-family: 'Space Mono', monospace;
+    }
+    .card-value {
+      font-size: 3.5rem;
+      font-weight: 800;
+      line-height: 1;
+      color: var(--crema);
+    }
+    .card-value sup {
+      font-size: 1.1rem;
+      font-weight: 400;
+      color: var(--ambar);
+      vertical-align: super;
+      margin-left: 2px;
+    }
+    .card-sub {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      margin-top: 0.6rem;
+      font-family: 'Space Mono', monospace;
+    }
+
+    /* Tarjeta de índice de calor (más pequeña) */
+    .card-secondary {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 1.25rem 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 1.25rem;
+      margin-bottom: 2rem;
+    }
+    .card-secondary .icon { font-size: 1.8rem; }
+    .card-secondary .info .label {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--text-muted);
+      font-family: 'Space Mono', monospace;
+    }
+    .card-secondary .info .val {
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: var(--crema);
+    }
+    .card-secondary .info .val sup {
+      font-size: 0.85rem;
+      color: var(--ambar);
+      font-weight: 400;
+    }
+
+    /* ── Gráfico de historial ─────────────────────────────── */
+    .chart-section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 1.75rem 2rem;
+      margin-bottom: 2rem;
+    }
+    .section-title {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--text-muted);
+      font-family: 'Space Mono', monospace;
+      margin-bottom: 1.25rem;
+    }
+    .chart-wrap {
+      width: 100%;
+      height: 180px;
+      position: relative;
+    }
+    canvas { width: 100% !important; height: 100% !important; }
+
+    /* ── Tabla últimas lecturas ───────────────────────────── */
+    .table-section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 1.75rem 2rem;
+      margin-bottom: 2rem;
+      overflow-x: auto;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: 'Space Mono', monospace;
+      font-size: 0.78rem;
+    }
+    th {
+      text-align: left;
+      color: var(--ambar);
+      font-weight: 700;
+      padding: 0.5rem 0.75rem;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+    td {
+      padding: 0.55rem 0.75rem;
+      color: var(--text-muted);
+      border-bottom: 1px solid rgba(249,160,63,0.08);
+    }
+    tr:last-child td { border-bottom: none; }
+    td:first-child { color: var(--crema); }
+    .tag-ok {
+      display: inline-block;
+      background: rgba(221,249,193,0.15);
+      color: var(--green);
+      border-radius: 4px;
+      padding: 1px 6px;
+      font-size: 0.7rem;
+    }
+
+    /* ── Footer ───────────────────────────────────────────── */
+    footer {
+      max-width: 900px;
+      margin: 0 auto;
+      text-align: center;
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      font-family: 'Space Mono', monospace;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border);
+    }
+    footer a { color: var(--ambar); text-decoration: none; }
+
+    /* ── Estado de carga ──────────────────────────────────── */
+    .loading {
+      text-align: center;
+      padding: 2rem;
+      color: var(--text-muted);
+      font-family: 'Space Mono', monospace;
+      font-size: 0.8rem;
+      animation: blink 1.2s step-end infinite;
+    }
+    @keyframes blink { 50% { opacity: 0.3; } }
+
+    .error-msg {
+      text-align: center;
+      padding: 1rem;
+      color: #ffaa88;
+      font-family: 'Space Mono', monospace;
+      font-size: 0.8rem;
+      background: rgba(255,80,40,0.1);
+      border-radius: 12px;
+      border: 1px solid rgba(255,80,40,0.2);
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1 class="site-title">Estación <span>IoT</span><br>DHT11</h1>
+  <div class="status-pill">
+    <span class="dot-live"></span>
+    <span id="last-update">cargando…</span>
+  </div>
+</header>
+
+<main>
+
+  <!-- Tarjetas principales -->
+  <div class="cards-primary">
+    <div class="card">
+      <span class="card-icon">🌡</span>
+      <div class="card-label">Temperatura</div>
+      <div class="card-value" id="temp-val">--<sup>°C</sup></div>
+      <div class="card-sub" id="temp-range">— máx / — mín (24h)</div>
+    </div>
+    <div class="card">
+      <span class="card-icon">💧</span>
+      <div class="card-label">Humedad relativa</div>
+      <div class="card-value" id="hum-val">--<sup>%</sup></div>
+      <div class="card-sub" id="hum-range">— máx / — mín (24h)</div>
+    </div>
+  </div>
+
+  <!-- Tarjeta índice de calor -->
+  <div class="card-secondary">
+    <div class="icon">🔥</div>
+    <div class="info">
+      <div class="label">Índice de calor</div>
+      <div class="val" id="hi-val">--<sup>°C</sup></div>
+    </div>
+    <div style="margin-left:auto; font-family:'Space Mono',monospace; font-size:0.72rem; color:var(--text-muted); text-align:right">
+      <div>Sensor</div>
+      <div style="color:var(--crema)" id="device-val">DHT11</div>
+    </div>
+  </div>
+
+  <!-- Gráfico temperatura 24h -->
+  <div class="chart-section">
+    <div class="section-title">Temperatura — últimas 24 h</div>
+    <div class="chart-wrap">
+      <canvas id="chartTemp"></canvas>
+    </div>
+  </div>
+
+  <!-- Gráfico humedad 24h -->
+  <div class="chart-section">
+    <div class="section-title">Humedad — últimas 24 h</div>
+    <div class="chart-wrap">
+      <canvas id="chartHum"></canvas>
+    </div>
+  </div>
+
+  <!-- Tabla últimas lecturas -->
+  <div class="table-section">
+    <div class="section-title">Últimas lecturas</div>
+    <div id="table-wrap">
+      <div class="loading">cargando lecturas…</div>
+    </div>
+  </div>
+
+</main>
+
+<footer>
+  <p>ESP32 → MQTT (HiveMQ) → Supabase → GitHub Pages &nbsp;|&nbsp;
+    Actualización cada 30 s &nbsp;|&nbsp;
+    <a href="https://github.com/TU_USUARIO/TU_REPO" target="_blank">GitHub</a>
+  </p>
+</footer>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+<script>
+  // ── Configuración Supabase ──────────────────────────────────────
+  // Reemplazar con tus valores
+  const SUPABASE_URL    = "https://XXXXXXXXXXXX.supabase.co";
+  const SUPABASE_ANON   = "TU_ANON_KEY";                       // clave pública (anon)
+  const TABLE           = "lecturas_sensor";
+  const REFRESH_MS      = 30_000;   // 30 segundos
+
+  // ── Helpers ─────────────────────────────────────────────────────
+  function fmt(v, dec = 1) {
+    return v != null ? Number(v).toFixed(dec) : "—";
+  }
+  function fmtTime(iso) {
+    const d = new Date(iso);
+    return d.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  }
+  function fmtDatetime(iso) {
+    const d = new Date(iso);
+    return d.toLocaleString("es-AR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+  }
+
+  // ── Fetch a Supabase REST API ────────────────────────────────────
+  async function query(path, params = {}) {
+    const url = new URL(`${SUPABASE_URL}/rest/v1/${path}`);
+    Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+    const r = await fetch(url, {
+      headers: {
+        "apikey": SUPABASE_ANON,
+        "Authorization": `Bearer ${SUPABASE_ANON}`,
+        "Accept": "application/json"
+      }
+    });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return r.json();
+  }
+
+  // ── Charts ───────────────────────────────────────────────────────
+  const chartConfig = (label, color) => ({
+    type: "line",
+    data: { labels: [], datasets: [{ label, data: [], borderColor: color, backgroundColor: color + "22",
+      borderWidth: 2, pointRadius: 2, tension: 0.35, fill: true }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: "#F8DDA499", font: { family: "Space Mono", size: 10 }, maxTicksLimit: 8 },
+             grid: { color: "rgba(249,160,63,0.1)" } },
+        y: { ticks: { color: "#F8DDA499", font: { family: "Space Mono", size: 10 } },
+             grid: { color: "rgba(249,160,63,0.1)" } }
+      }
+    }
+  });
+
+  const chartTemp = new Chart(document.getElementById("chartTemp"), chartConfig("Temperatura °C", "#F9A03F"));
+  const chartHum  = new Chart(document.getElementById("chartHum"),  chartConfig("Humedad %",      "#DDF9C1"));
+
+  function updateChart(chart, rows, field) {
+    const labels = rows.map(r => fmtTime(r.created_at));
+    const data   = rows.map(r => r[field]);
+    chart.data.labels         = labels.reverse();
+    chart.data.datasets[0].data = data.reverse();
+    chart.update("none");
+  }
+
+  // ── Tabla ────────────────────────────────────────────────────────
+  function renderTable(rows) {
+    if (!rows.length) {
+      document.getElementById("table-wrap").innerHTML =
+        '<div class="error-msg">Sin datos aún</div>';
+      return;
+    }
+    const html = `
+      <table>
+        <thead>
+          <tr>
+            <th>Fecha/Hora</th>
+            <th>Temp °C</th>
+            <th>Hum %</th>
+            <th>Índ. Calor</th>
+            <th>Estado</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map(r => `
+            <tr>
+              <td>${fmtDatetime(r.created_at)}</td>
+              <td>${fmt(r.temperatura)}</td>
+              <td>${fmt(r.humedad)}</td>
+              <td>${fmt(r.indice_calor)}</td>
+              <td><span class="tag-ok">OK</span></td>
+            </tr>`).join("")}
+        </tbody>
+      </table>`;
+    document.getElementById("table-wrap").innerHTML = html;
+  }
+
+  // ── Carga principal ──────────────────────────────────────────────
+  async function load() {
+    try {
+      // Última lectura
+      const [latest] = await query(TABLE, {
+        order: "created_at.desc",
+        limit: "1",
+        select: "*"
+      });
+
+      if (latest) {
+        document.getElementById("temp-val").innerHTML = `${fmt(latest.temperatura)}<sup>°C</sup>`;
+        document.getElementById("hum-val").innerHTML  = `${fmt(latest.humedad)}<sup>%</sup>`;
+        document.getElementById("hi-val").innerHTML   = `${fmt(latest.indice_calor)}<sup>°C</sup>`;
+        document.getElementById("device-val").textContent = latest.dispositivo ?? "DHT11";
+        document.getElementById("last-update").textContent = `última lectura: ${fmtTime(latest.created_at)}`;
+      }
+
+      // Últimas 50 filas para los gráficos (en orden asc para la línea)
+      const hist = await query(TABLE, {
+        order: "created_at.desc",
+        limit: "50",
+        select: "created_at,temperatura,humedad"
+      });
+      updateChart(chartTemp, hist, "temperatura");
+      updateChart(chartHum,  hist, "humedad");
+
+      // Últimas 20 para la tabla
+      const tableRows = await query(TABLE, {
+        order: "created_at.desc",
+        limit: "20",
+        select: "created_at,temperatura,humedad,indice_calor,dispositivo"
+      });
+      renderTable(tableRows);
+
+      // Máx/Mín 24h
+      const stats = await query(TABLE, {
+        select: "temperatura,humedad",
+        created_at: `gte.${new Date(Date.now() - 86400000).toISOString()}`
+      });
+      if (stats.length) {
+        const temps = stats.map(r => r.temperatura);
+        const hums  = stats.map(r => r.humedad);
+        document.getElementById("temp-range").textContent =
+          `${fmt(Math.max(...temps))} máx / ${fmt(Math.min(...temps))} mín (24h)`;
+        document.getElementById("hum-range").textContent =
+          `${fmt(Math.max(...hums))} máx / ${fmt(Math.min(...hums))} mín (24h)`;
+      }
+
+    } catch (err) {
+      console.error(err);
+      document.getElementById("last-update").textContent = "error de conexión";
+    }
+  }
+
+  // ── Ejecutar y programar refresco ────────────────────────────────
+  load();
+  setInterval(load, REFRESH_MS);
+</script>
+</body>
+</html>
