@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Estación IoT — DHT11</title>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+
+  <style>
+    /* ── Paleta ───────────────────────────────────────────── */
+    :root {
+      --marron:  #813405;
+      --naranja: #D45113;
+      --ambar:   #F9A03F;
+      --crema:   #F8DDA4;
+      --menta:   #DDF9C1;
+
+      --bg:      #813405;
+      --surface: rgba(212, 81, 19, 0.18);
+      --border:  rgba(249, 160, 63, 0.35);
+      --text:    #F8DDA4;
+      --text-muted: rgba(248, 221, 164, 0.6);
+      --accent:  #F9A03F;
+      --green:   #DDF9C1;
+    }
+
+    /* ── Reset & base ─────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Syne', sans-serif;
+      background: var(--marron);
+      background-image:
+        radial-gradient(ellipse 80% 60% at 20% 0%, rgba(212,81,19,0.55) 0%, transparent 65%),
+        radial-gradient(ellipse 60% 40% at 80% 100%, rgba(249,160,63,0.25) 0%, transparent 55%);
+      min-height: 100vh;
+      color: var(--text);
+      padding: 2rem 1.5rem 4rem;
+    }
+
+    /* ── Header ───────────────────────────────────────────── */
+    header {
+      max-width: 900px;
+      margin: 0 auto 3rem;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 1.5rem;
+    }
+
+    .site-title {
+      font-size: clamp(1.6rem, 4vw, 2.8rem);
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      line-height: 1;
+    }
+    .site-title span { color: var(--ambar); }
+
+    .status-pill {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 6px 14px;
+      font-size: 0.78rem;
+      font-family: 'Space Mono', monospace;
+      color: var(--text-muted);
+    }
+    .dot-live {
+      width: 8px; height: 8px;
+      background: var(--green);
+      border-radius: 50%;
+      animation: pulse 2s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%,100% { opacity:1; transform:scale(1); }
+      50%      { opacity:.5; transform:scale(0.8); }
+    }
+
+    /* ── Main grid ────────────────────────────────────────── */
+    main { max-width: 900px; margin: 0 auto; }
+
+    /* ── Tarjetas principales ─────────────────────────────── */
+    .cards-primary {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 1.25rem;
+      margin-bottom: 2rem;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 1.75rem 2rem;
+      position: relative;
+      overflow: hidden;
+      transition: border-color 0.2s;
+    }
+    .card::before {
+      content: '';
+      position: absolute;
+      top: -40px; right: -40px;
+      width: 130px; height: 130px;
+      border-radius: 50%;
+      background: rgba(249,160,63,0.07);
+      pointer-events: none;
+    }
+    .card:hover { border-color: rgba(249,160,63,0.6); }
+
+    .card-icon {
+      font-size: 2rem;
+      margin-bottom: 1rem;
+      display: block;
+    }
+    .card-label {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--text-muted);
+      margin-bottom: 0.4rem;
+      font-family: 'Space Mono', monospace;
+    }
+    .card-value {
+      font-size: 3.5rem;
+      font-weight: 800;
+      line-height: 1;
+      color: var(--crema);
+    }
+    .card-value sup {
+      font-size: 1.1rem;
+      font-weight: 400;
+      color: var(--ambar);
+      vertical-align: super;
+      margin-left: 2px;
+    }
+    .card-sub {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      margin-top: 0.6rem;
+      font-family: 'Space Mono', monospace;
+    }
+
+    /* Tarjeta de índice de calor (más pequeña) */
+    .card-secondary {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 1.25rem 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 1.25rem;
+      margin-bottom: 2rem;
+    }
+    .card-secondary .icon { font-size: 1.8rem; }
+    .card-secondary .info .label {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--text-muted);
+      font-family: 'Space Mono', monospace;
+    }
+    .card-secondary .info .val {
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: var(--crema);
+    }
+    .card-secondary .info .val sup {
+      font-size: 0.85rem;
+      color: var(--ambar);
+      font-weight: 400;
+    }
+
+    /* ── Gráfico de historial ─────────────────────────────── */
+    .chart-section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 1.75rem 2rem;
+      margin-bottom: 2rem;
+    }
+    .chart-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      margin-bottom: 1.25rem;
+    }
+    .section-title {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--text-muted);
+      font-family: 'Space Mono', monospace;
+    }
+    /* Botones de período */
+    .period-btns {
+      display: flex;
+      gap: 0.35rem;
+    }
+    .period-btns button {
+      font-family: 'Space Mono', monospace;
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 5px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+    }
+    .period-btns button:hover {
+      border-color: var(--ambar);
+      color: var(--ambar);
+    }
+    .period-btns button.active {
+      background: var(--ambar);
+      border-color: var(--ambar);
+      color: #813405;
+    }
+    /* Spinner de carga en el gráfico */
+    .chart-loading {
+      display: none;
+      position: absolute;
+      inset: 0;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Space Mono', monospace;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      background: rgba(129,52,5,0.45);
+      border-radius: 12px;
+      z-index: 2;
+    }
+    .chart-loading.visible { display: flex; }
+    .chart-wrap {
+      width: 100%;
+      height: 220px;
+      position: relative;
+    }
+    canvas { width: 100% !important; height: 100% !important; }
+
+    /* ── Tabla últimas lecturas ───────────────────────────── */
+    .table-section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 1.75rem 2rem;
+      margin-bottom: 2rem;
+      overflow-x: auto;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: 'Space Mono', monospace;
+      font-size: 0.78rem;
+    }
+    th {
+      text-align: left;
+      color: var(--ambar);
+      font-weight: 700;
+      padding: 0.5rem 0.75rem;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+    td {
+      padding: 0.55rem 0.75rem;
+      color: var(--text-muted);
+      border-bottom: 1px solid rgba(249,160,63,0.08);
+    }
+    tr:last-child td { border-bottom: none; }
+    td:first-child { color: var(--crema); }
+    .tag-ok {
+      display: inline-block;
+      background: rgba(221,249,193,0.15);
+      color: var(--green);
+      border-radius: 4px;
+      padding: 1px 6px;
+      font-size: 0.7rem;
+    }
+
+    /* ── Footer ───────────────────────────────────────────── */
+    footer {
+      max-width: 900px;
+      margin: 0 auto;
+      text-align: center;
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      font-family: 'Space Mono', monospace;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border);
+    }
+    footer a { color: var(--ambar); text-decoration: none; }
+
+    /* ── Estado de carga ──────────────────────────────────── */
+    .loading {
+      text-align: center;
+      padding: 2rem;
+      color: var(--text-muted);
+      font-family: 'Space Mono', monospace;
+      font-size: 0.8rem;
+      animation: blink 1.2s step-end infinite;
+    }
+    @keyframes blink { 50% { opacity: 0.3; } }
+
+    .error-msg {
+      text-align: center;
+      padding: 1rem;
+      color: #ffaa88;
+      font-family: 'Space Mono', monospace;
+      font-size: 0.8rem;
+      background: rgba(255,80,40,0.1);
+      border-radius: 12px;
+      border: 1px solid rgba(255,80,40,0.2);
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1 class="site-title">Estación <span>IoT</span><br>DHT11</h1>
+  <div class="status-pill">
+    <span class="dot-live"></span>
+    <span id="last-update">cargando…</span>
+  </div>
+</header>
+
+<main>
+
+  <!-- Tarjetas principales -->
+  <div class="cards-primary">
+    <div class="card">
+      <span class="card-icon">🌡</span>
+      <div class="card-label">Temperatura</div>
+      <div class="card-value" id="temp-val">--<sup>°C</sup></div>
+      <div class="card-sub" id="temp-range">— máx / — mín (24 h)</div>
+    </div>
+    <div class="card">
+      <span class="card-icon">💧</span>
+      <div class="card-label">Humedad relativa</div>
+      <div class="card-value" id="hum-val">--<sup>%</sup></div>
+      <div class="card-sub" id="hum-range">— máx / — mín (24 h)</div>
+    </div>
+  </div>
+
+  <!-- Tarjeta índice de calor -->
+  <div class="card-secondary">
+    <div class="icon">🔥</div>
+    <div class="info">
+      <div class="label">Índice de calor</div>
+      <div class="val" id="hi-val">--<sup>°C</sup></div>
+    </div>
+    <div style="margin-left:auto; font-family:'Space Mono',monospace; font-size:0.72rem; color:var(--text-muted); text-align:right">
+      <div>Sensor</div>
+      <div style="color:var(--crema)" id="device-val">DHT11</div>
+    </div>
+  </div>
+
+  <!-- Gráfico histórico con selector de período -->
+  <div class="chart-section">
+    <div class="chart-header">
+      <div class="section-title" id="chart-title-temp">Temperatura — 24 h</div>
+      <div class="period-btns">
+        <button class="active" data-period="day"   onclick="setPeriod('day',   this)">24 h</button>
+        <button               data-period="week"  onclick="setPeriod('week',  this)">Semana</button>
+        <button               data-period="month" onclick="setPeriod('month', this)">Mes</button>
+        <button               data-period="year"  onclick="setPeriod('year',  this)">Año</button>
+      </div>
+    </div>
+    <div class="chart-wrap">
+      <canvas id="chartTemp"></canvas>
+      <div class="chart-loading" id="loadingTemp">cargando…</div>
+    </div>
+  </div>
+
+  <div class="chart-section">
+    <div class="chart-header">
+      <div class="section-title" id="chart-title-hum">Humedad — 24 h</div>
+    </div>
+    <div class="chart-wrap">
+      <canvas id="chartHum"></canvas>
+      <div class="chart-loading" id="loadingHum">cargando…</div>
+    </div>
+  </div>
+
+  <!-- Tabla últimas lecturas -->
+  <div class="table-section">
+    <div class="section-title">Últimas lecturas</div>
+    <div id="table-wrap">
+      <div class="loading">cargando lecturas…</div>
+    </div>
+  </div>
+
+</main>
+
+<footer>
+  <p>ESP32 → MQTT (HiveMQ) → Supabase → Vercel &nbsp;|&nbsp;
+    Actualización cada 30 s &nbsp;|&nbsp;
+    <a href="https://github.com/kipzy899/pruebasESP32" target="_blank">GitHub</a>
+  </p>
+</footer>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+<script>
+  // ── Configuración Supabase ──────────────────────────────────────
+  const SUPABASE_URL  = "https://XXXXXXXXXXXX.supabase.co";  // <-- cambiar
+  const SUPABASE_ANON = "TU_ANON_KEY";                       // <-- cambiar (clave anon, pública)
+  const TABLE         = "lecturas_sensor";
+  const REFRESH_MS    = 30_000;
+  const STALE_MIN     = 3;   // minutos sin datos para avisar que el sensor puede estar caído
+
+  let currentPeriod = "day";
+  let requestSeq = 0;   // evita que una respuesta vieja pise a una más nueva
+
+  const periodLabel = { day: "24 h", week: "Última semana", month: "Último mes", year: "Último año" };
+
+  // ── Helpers (puros, sin DOM) ────────────────────────────────────
+  const fmt = (v, dec = 1) => (v != null && v !== "" && !isNaN(v)) ? Number(v).toFixed(dec) : "—";
+
+  function fmtTime(iso) {
+    return new Date(iso).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  }
+  function fmtDatetime(iso) {
+    return new Date(iso).toLocaleString("es-AR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+  }
+  function fmtLabel(iso, period) {
+    const d = new Date(iso);
+    if (period === "day")   return d.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
+    if (period === "week")  return d.toLocaleDateString("es-AR", { weekday: "short", hour: "2-digit", minute: "2-digit" });
+    if (period === "month") return d.toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+    return d.toLocaleDateString("es-AR", { day: "2-digit", month: "short" });
+  }
+
+  // Máximo y mínimo del período a partir de las filas agrupadas
+  function resumen(rows, minKey, maxKey) {
+    const mins = rows.map(r => Number(r[minKey])).filter(Number.isFinite);
+    const maxs = rows.map(r => Number(r[maxKey])).filter(Number.isFinite);
+    if (!mins.length || !maxs.length) return null;
+    return { min: Math.min(...mins), max: Math.max(...maxs) };
+  }
+
+  // Texto de frescura: cuánto hace que llegó la última lectura
+  function frescura(iso, ahora = Date.now()) {
+    const min = Math.floor((ahora - new Date(iso).getTime()) / 60000);
+    if (min < 1) return { texto: "hace instantes", stale: false };
+    if (min < 60) return { texto: `hace ${min} min`, stale: min >= STALE_MIN };
+    const h = Math.floor(min / 60);
+    return { texto: h < 24 ? `hace ${h} h` : `hace ${Math.floor(h / 24)} d`, stale: true };
+  }
+
+  // ── Supabase REST ───────────────────────────────────────────────
+  const headers = () => ({
+    "apikey": SUPABASE_ANON,
+    "Authorization": `Bearer ${SUPABASE_ANON}`,
+    "Accept": "application/json",
+  });
+
+  async function query(path, params = {}) {
+    const url = new URL(`${SUPABASE_URL}/rest/v1/${path}`);
+    Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+    const r = await fetch(url, { headers: headers() });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return r.json();
+  }
+
+  // Llama a la función SQL lecturas_agrupadas (ver supabase/agregacion.sql)
+  async function rpc(fn, args) {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${fn}`, {
+      method: "POST",
+      headers: { ...headers(), "Content-Type": "application/json" },
+      body: JSON.stringify(args),
+    });
+    if (!r.ok) {
+      const e = new Error(`HTTP ${r.status}`);
+      e.status = r.status;
+      throw e;
+    }
+    return r.json();
+  }
+
+  // ── Gráficos ────────────────────────────────────────────────────
+  const makeConfig = (label, color, unit, minKey, maxKey) => ({
+    type: "line",
+    data: {
+      labels: [],
+      datasets: [{
+        label, data: [], rangos: [],
+        borderColor: color, backgroundColor: color + "22",
+        borderWidth: 2, pointRadius: 2, pointHoverRadius: 4, tension: 0.35, fill: true,
+      }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: "index", intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: "rgba(129,52,5,0.92)", titleColor: "#F9A03F", bodyColor: "#F8DDA4",
+          borderColor: "rgba(249,160,63,0.4)", borderWidth: 1, padding: 10,
+          callbacks: {
+            label: ctx => ` promedio ${ctx.parsed.y} ${unit}`,
+            afterLabel: ctx => {
+              const r = ctx.dataset.rangos[ctx.dataIndex];
+              return r ? ` mín ${r.min} / máx ${r.max} ${unit}` : "";
+            },
+          },
+        },
+      },
+      scales: {
+        x: { ticks: { color: "#F8DDA499", font: { family: "Space Mono", size: 10 }, maxTicksLimit: 8, maxRotation: 0 },
+             grid: { color: "rgba(249,160,63,0.08)" } },
+        y: { ticks: { color: "#F8DDA499", font: { family: "Space Mono", size: 10 } },
+             grid: { color: "rgba(249,160,63,0.08)" } },
+      },
+    },
+  });
+
+  const chartTemp = new Chart(document.getElementById("chartTemp"), makeConfig("Temperatura", "#F9A03F", "°C"));
+  const chartHum  = new Chart(document.getElementById("chartHum"),  makeConfig("Humedad",      "#DDF9C1", "%"));
+
+  function applyChartData(chart, rows, avgKey, minKey, maxKey, period) {
+    const ds = chart.data.datasets[0];
+    chart.data.labels = rows.map(r => fmtLabel(r.bucket, period));
+    ds.data = rows.map(r => Number(r[avgKey]));
+    ds.rangos = rows.map(r => ({ min: r[minKey], max: r[maxKey] }));
+    ds.pointRadius = rows.length > 80 ? 0 : 2;
+    chart.update("none");
+  }
+
+  // Los overlays sirven para "cargando…" y para mensajes de error
+  function overlay(texto) {
+    ["loadingTemp", "loadingHum"].forEach(id => {
+      const el = document.getElementById(id);
+      if (texto) { el.textContent = texto; el.classList.add("visible"); }
+      else       { el.classList.remove("visible"); }
+    });
+  }
+
+  async function loadCharts(period) {
+    const mySeq = ++requestSeq;
+    overlay("cargando…");
+    try {
+      const rows = await rpc("lecturas_agrupadas", { periodo: period });
+      if (mySeq !== requestSeq) return;   // llegó una respuesta más nueva: descartar esta
+
+      if (!rows.length) {
+        applyChartData(chartTemp, [], "temp_prom", "temp_min", "temp_max", period);
+        applyChartData(chartHum,  [], "hum_prom",  "hum_min",  "hum_max",  period);
+        overlay("Sin datos en este período");
+      } else {
+        applyChartData(chartTemp, rows, "temp_prom", "temp_min", "temp_max", period);
+        applyChartData(chartHum,  rows, "hum_prom",  "hum_min",  "hum_max",  period);
+        overlay(null);
+      }
+
+      const lbl = periodLabel[period].toLowerCase();
+      const t = resumen(rows, "temp_min", "temp_max");
+      const h = resumen(rows, "hum_min",  "hum_max");
+      document.getElementById("temp-range").textContent =
+        t ? `${fmt(t.max)} máx / ${fmt(t.min)} mín (${lbl})` : "sin datos en el período";
+      document.getElementById("hum-range").textContent =
+        h ? `${fmt(h.max)} máx / ${fmt(h.min)} mín (${lbl})` : "sin datos en el período";
+    } catch (err) {
+      if (mySeq !== requestSeq) return;
+      console.error("Error cargando gráficos:", err);
+      overlay(err.status === 404
+        ? "Falta crear la función lecturas_agrupadas en Supabase (ejecutar agregacion.sql)"
+        : "No se pudieron cargar los datos");
+    }
+  }
+
+  // ── Selector de período ─────────────────────────────────────────
+  async function setPeriod(period, btn) {
+    currentPeriod = period;
+    document.querySelectorAll(".period-btns button").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    const lbl = periodLabel[period];
+    document.getElementById("chart-title-temp").textContent = `Temperatura — ${lbl}`;
+    document.getElementById("chart-title-hum").textContent  = `Humedad — ${lbl}`;
+    await loadCharts(period);
+  }
+
+  // ── Tabla ───────────────────────────────────────────────────────
+  function renderTable(rows) {
+    const wrap = document.getElementById("table-wrap");
+    if (!rows.length) { wrap.innerHTML = '<div class="error-msg">Sin datos aún</div>'; return; }
+    wrap.innerHTML = `
+      <table>
+        <thead><tr><th>Fecha/Hora</th><th>Temp °C</th><th>Hum %</th><th>Índ. Calor</th><th>Estado</th></tr></thead>
+        <tbody>
+          ${rows.map(r => `
+            <tr>
+              <td>${fmtDatetime(r.created_at)}</td>
+              <td>${fmt(r.temperatura)}</td>
+              <td>${fmt(r.humedad)}</td>
+              <td>${fmt(r.indice_calor)}</td>
+              <td><span class="tag-ok">OK</span></td>
+            </tr>`).join("")}
+        </tbody>
+      </table>`;
+  }
+
+  // ── Tarjetas + tabla (últimas lecturas) ─────────────────────────
+  async function loadLatest() {
+    try {
+      const [latest] = await query(TABLE, { order: "created_at.desc", limit: "1", select: "*" });
+      if (latest) {
+        document.getElementById("temp-val").innerHTML = `${fmt(latest.temperatura)}<sup>°C</sup>`;
+        document.getElementById("hum-val").innerHTML  = `${fmt(latest.humedad)}<sup>%</sup>`;
+        document.getElementById("hi-val").innerHTML   = `${fmt(latest.indice_calor)}<sup>°C</sup>`;
+        document.getElementById("device-val").textContent = latest.dispositivo ?? "DHT11";
+        const f = frescura(latest.created_at);
+        document.getElementById("last-update").textContent =
+          f.stale ? `sin datos nuevos (${f.texto})` : `última lectura: ${fmtTime(latest.created_at)}`;
+        const dot = document.querySelector(".dot-live");
+        if (dot) dot.style.background = f.stale ? "var(--ambar)" : "var(--green)";
+      }
+      renderTable(await query(TABLE, {
+        order: "created_at.desc", limit: "20",
+        select: "created_at,temperatura,humedad,indice_calor,dispositivo",
+      }));
+    } catch (err) {
+      console.error(err);
+      document.getElementById("last-update").textContent = "error de conexión";
+    }
+  }
+
+  async function load() {
+    await Promise.all([loadLatest(), loadCharts(currentPeriod)]);
+  }
+
+  load();
+  setInterval(load, REFRESH_MS);
+</script>
+</body>
+</html>
